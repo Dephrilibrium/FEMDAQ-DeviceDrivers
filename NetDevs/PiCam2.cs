@@ -11,6 +11,7 @@ using System.Text;
 using System.IO;
 using System.Linq;
 
+
 namespace HaumOTH
 {
     public enum PiCam2Status
@@ -20,47 +21,47 @@ namespace HaumOTH
         Unconnected,
     };
 
-    //public enum PiCam2ExposureMode
-    //{
-    //    off,
-    //    auto,
-    //    night,
-    //    nightpreview,
-    //    backlight,
-    //    spotlight,
-    //    sports,
-    //    snow,
-    //    beach,
-    //    verylong,
-    //    fixedfps,
-    //    antishake,
-    //    fireworks,
-    //};
+    public enum PiCam2ExposureMode
+    {
+        off,
+        auto,
+        night,
+        nightpreview,
+        backlight,
+        spotlight,
+        sports,
+        snow,
+        beach,
+        verylong,
+        fixedfps,
+        antishake,
+        fireworks,
+    };
 
-    //public enum PiCam2AwbMode
-    //{
-    //    // awbgain only valid when AwbMode is 'off'
-    //    off,
-    //    auto,
-    //    sunlight,
-    //    cloudy,
-    //    shade,
-    //    tungsten,
-    //    fluorescent,
-    //    incandescent,
-    //    flash,
-    //    horizon,
-    //};
+    public enum PiCam2AwbMode
+    {
+        // awbgain only valid when AwbMode is 'off'
+        off,
+        auto,
+        sunlight,
+        cloudy,
+        shade,
+        tungsten,
+        fluorescent,
+        incandescent,
+        flash,
+        horizon,
+    };
 
     class PiCam2
     {
-        SshClient _ssh = null;
+        SshClient _ssh;
         //SshCommand _cmd = null;
-        ShellStream _shellStream = null;
+        ShellStream _shellStream;
         //SshCommand _pyServCmd = null;
-        Socket _socket = null;
+        Socket _socket;
         //ScpClient _scp = null;
-        ConnectionInfo _connInfo = null;
+        ConnectionInfo _connInfo;
 
         public string PyScriptPath { get; private set; }
         public string PyLogPath { get; private set; }
@@ -105,6 +106,7 @@ namespace HaumOTH
 
                 Thread.Sleep(1000);
                 _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.IP);
+                _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 //_socket.ReceiveTimeout = 10000;
                 //_socket.SendTimeout = 10000;
                 _socket.Connect(Ip, Port);
@@ -126,17 +128,28 @@ namespace HaumOTH
             if (_socket.Connected) // Try to close regularly
                 QuerySocket("SRV:CLOSE");
 
+            if (_socket != null)
+            {
+                _socket.Close();
+                _socket.Dispose();
+                _socket = null;
+            }
+
             KillPyCamScriptInstances(); // Afterwards check and force kill if not closed
 
             //if (_cmd != null)
             //    _cmd.Dispose();
             if (_shellStream!= null)
+            { 
                 _shellStream.Dispose();
+                _shellStream = null;
+            }
 
             if (_ssh != null)
             {
                 _ssh.Disconnect();
                 _ssh.Dispose();
+                _ssh = null;
             }
         }
 
@@ -163,14 +176,14 @@ namespace HaumOTH
 
         private void RunPyCamScript()
         {
-            string response = null;
+            //string response = null;
             KillPyCamScriptInstances();
 
-            Thread.Sleep(100); // Give rPi a little bit time to close the process completely
+            Thread.Sleep(250); // Give rPi a little bit time to close the process completely
             PyLogPath = Path.Combine(Path.GetDirectoryName(PyScriptPath), "rPiHQCamServer2.log").Replace('\\', '/');
 
             // Workaround to run the python script anyway. Otherwise _cmd.Execute freeze and waits for the python-script to finish (even it's started as a process? o.O)
-            var _pyStartCmd = $"(python -u {PyScriptPath} > {PyLogPath}) &";
+            var _pyStartCmd = $"(python -u {PyScriptPath} &> {PyLogPath}) &";
             _shellStream.WriteLine(_pyStartCmd);
             //_pyServCmd = _ssh.CreateCommand($"nohup \"python -u {PyScriptPath} > {PyLogPath}\"");
             //_pyServCmd.CommandTimeout = new TimeSpan((int)1e6);   // Set 100ms-timeout before throw an intended exception
@@ -350,10 +363,10 @@ namespace HaumOTH
         #endregion SSH-Commands
 
         #region Socket-Commands
-        public PiCamStatus CaptureShutterSpeedSequence(string Filename, uint nPicsPerSS, uint[] SSList, double IntervallTime_s, uint SaveSSLog)
+        public PiCam2Status CaptureShutterSpeedSequence(string Filename, uint nPicsPerSS, uint[] SSList, double IntervallTime_s, uint SaveSSLog)
         {
             if (SSList == null)
-                return PiCamStatus.Error;
+                return PiCam2Status.Error;
 
             string _ss = string.Empty;
             foreach (var SS in SSList)
@@ -367,64 +380,64 @@ namespace HaumOTH
             return EvaluatedQuery(string.Format("CAP:SEQFET {0} {1} {2} {3} {4}", Filename, _ss, nPicsPerSS, IntervallTime_s.ToString(), SaveSSLog));
         }
 
-        public PiCamStatus ConfFrameRate(double FrameRate)
+        public PiCam2Status ConfFrameRate(double FrameRate)
         {
             return EvaluatedQuery("CAM:CONF:FR " + FrameRate);
         }
 
-        public PiCamStatus ConfShutterSpeed(uint Shutterspeed_us = 1000)
+        public PiCam2Status ConfShutterSpeed(uint Shutterspeed_us = 1000)
         {
             return EvaluatedQuery("CAM:CONF:SS " + Shutterspeed_us);
         }
 
-        public PiCamStatus ConfAnalogGain(double Ag)
+        public PiCam2Status ConfAnalogGain(double Ag)
         {
             return EvaluatedQuery(string.Format("CAM:CONF:AG {0}", Ag));
         }
 
-        public PiCamStatus ConfScalerCrop(uint x = 0, uint y = 0, uint Width = 4056, uint Height = 3040)
+        public PiCam2Status ConfScalerCrop(uint x = 0, uint y = 0, uint Width = 4056, uint Height = 3040)
         {
             return EvaluatedQuery(string.Format("CAM:CONF:SCLCRP {0}:{1} {2}:{3}", x, y, Width, Height));
         }
 
-        public PiCamStatus ServerBayerClipSize(uint Width, uint Height)
+        public PiCam2Status ServerBayerClipSize(uint Width, uint Height)
         {
             return EvaluatedQuery(String.Format("SRV:IMG:BCLP {0}:{1}", Width, Height));
         }
-        public PiCamStatus ServerBayerClipSize(uint x, uint y, uint Width, uint Height)
+        public PiCam2Status ServerBayerClipSize(uint x, uint y, uint Width, uint Height)
         {
             return EvaluatedQuery(String.Format("SRV:IMG:BCLP {0}:{1}:{2}:{3}", x, y, Width, Height));
         }
-        public PiCamStatus ServerDeBayerClippedBayer(bool DebayerOnOff)
+        public PiCam2Status ServerDeBayerClippedBayer(bool DebayerOnOff)
         {
             // Use "1", "0" -> Shorter
             return EvaluatedQuery(String.Format("SRV:IMG:DBAY {0}", (DebayerOnOff ? 1 : 0)));
         }
-        public PiCamStatus ServerShrinkHalfDebayeredImageIterations(uint iterations)
+        public PiCam2Status ServerShrinkHalfDebayeredImageIterations(uint iterations)
         {
             return EvaluatedQuery(String.Format("SRV:IMG:SRNK {0}", iterations));
         }
 
 
         // AWB-Gains only valid on AWB-Mode "off". Previous AWB-Modes will auto-reconfigured to "off" by this method!
-        public PiCamStatus ConfAwbGains(double AwbGainRBalance, double AwbGainBBalance)
+        public PiCam2Status ConfAwbGains(double AwbGainRBalance, double AwbGainBBalance)
         {
             return EvaluatedQuery(string.Format("CAM:CONF:AWB {0}:{1}", AwbGainRBalance, AwbGainBBalance));
         }
         // AWB-Gains only valid on AWB-Mode "off". Previous AWB-Modes will auto-reconfigured to "off" by this method!
-        public PiCamStatus ConfAwbGains(double AwbGains = 1.2)
+        public PiCam2Status ConfAwbGains(double AwbGains = 1.2)
         {
-            return EvaluatedQuery(string.Format("CAM:CONF:AWB {0} {1}", AwbGains, Enum.GetName(typeof(PiCamAwbMode), PiCamAwbMode.off)));
+            return EvaluatedQuery(string.Format("CAM:CONF:AWB {0} {1}", AwbGains, Enum.GetName(typeof(PiCam2AwbMode), PiCam2AwbMode.off)));
         }
 
-        public PiCamStatus ConfAll(uint Shutterspeed_us = 1000, uint Iso = 500, uint Width = 1920, uint Height = 1080, PiCamExposureMode ExposureMode = PiCamExposureMode.off, PiCamAwbMode AwbMode = PiCamAwbMode.off, double AwbGainRBalance = 1.2, double AwbGainBBalance = 1.2)
+        public PiCam2Status ConfAll(uint Shutterspeed_us = 1000, uint Iso = 500, uint Width = 1920, uint Height = 1080, PiCam2ExposureMode ExposureMode = PiCam2ExposureMode.off, PiCam2AwbMode AwbMode = PiCam2AwbMode.off, double AwbGainRBalance = 1.2, double AwbGainBBalance = 1.2)
         {
             // Parameter order:
             // C#-Call:  0 iso, 1 SS, 2 & 3 AWB, 4 width, 5 height
             // PyScript: 0 iso, 1 SS, 2     AWB, 3 width, 4 height
             return EvaluatedQuery(string.Format("CAM:CONF:ALL {0} {1} {2}:{3} {4} {5}", Iso, Shutterspeed_us, AwbGainRBalance, AwbGainBBalance, Width, Height));
         }
-        public PiCamStatus ConfAll(int Shutterspeed_us = 1000, int Iso = 500, uint Width= 1920, uint Height=1080, PiCamExposureMode ExposureMode = PiCamExposureMode.off, PiCamAwbMode AwbMode = PiCamAwbMode.off, double AwbGains = 1.2)
+        public PiCam2Status ConfAll(int Shutterspeed_us = 1000, int Iso = 500, uint Width= 1920, uint Height=1080, PiCam2ExposureMode ExposureMode = PiCam2ExposureMode.off, PiCam2AwbMode AwbMode = PiCam2AwbMode.off, double AwbGains = 1.2)
         {
             // Parameter order:
             // C#-Call:  0 iso, 1 SS, 2 AWB, 3 width, 4 height
@@ -435,13 +448,13 @@ namespace HaumOTH
 
 
         #region Socket-Communication
-        private PiCamStatus EvaluatedQuery(string Message)
+        private PiCam2Status EvaluatedQuery(string Message)
         {
             var response = QuerySocket(Message);
             if (response == ackStr)
-                return PiCamStatus.Ok;
+                return PiCam2Status.Ok;
 
-            return PiCamStatus.Error;
+            return PiCam2Status.Error;
         }
 
         private string QuerySocket(string Message)
@@ -450,13 +463,13 @@ namespace HaumOTH
             return ReceiveFromSocket();
         }
 
-        private PiCamStatus Send2Socket(string Message)
+        private PiCam2Status Send2Socket(string Message)
         {
             if (!_socket.Connected)
-                return PiCamStatus.Unconnected;
+                return PiCam2Status.Unconnected;
 
             _socket.Send(Encoding.ASCII.GetBytes(Message));
-            return PiCamStatus.Ok;
+            return PiCam2Status.Ok;
         }
 
         private string ReceiveFromSocket(uint ExceptedSize = 32)

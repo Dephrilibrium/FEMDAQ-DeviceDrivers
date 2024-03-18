@@ -17,6 +17,7 @@ namespace Instrument.KE6487
     public class KE6487
     {
         Device ke6487;
+        double _lastSetVoltValue = 0;
 
         public KE6487(int boardNumber, byte primAddr, byte secAddr)
         {
@@ -66,7 +67,9 @@ namespace Instrument.KE6487
             else ke6487.Write("SOUR:VOLT:RANG 500");
 
             ke6487.Write("SOUR:VOLT:LEV:IMM:AMPL " + voltageValue.ToString());
-            
+            _lastSetVoltValue = voltageValue;
+
+
             ke6487.Write("SOUR:VOLT:ILIM " + currentLimit.ToString());
 
             SetOutput(state);
@@ -301,9 +304,14 @@ namespace Instrument.KE6487
 
         public double GetVoltage()
         {
-            ke6487.Write("SOUR:VOLT:LEV:IMM:AMPL?");
-            var response = ke6487.ReadString();
-            return Convert.ToDouble(response);
+            //lock (ke6487) // Old call. Caused freezes if to much requests were incomming -> Workaround by internal variable!
+            //{
+            //    ke6487.Write("SOUR:VOLT:LEV:IMM:AMPL?");
+            //    var response = ke6487.ReadString();
+            //    return Convert.ToDouble(response);
+            //}
+
+            return _lastSetVoltValue;
         }
 
         public void SafeMode()

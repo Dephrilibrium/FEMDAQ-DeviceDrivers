@@ -3,6 +3,7 @@ using System.Threading;
 
 using NationalInstruments.NI4882;
 
+
 namespace Keithley
 {
     public enum KE2400MeasureType { None, Current, Voltage, Ohmic }
@@ -11,6 +12,8 @@ namespace Keithley
     {
         private Device _device;
         private KE2400MeasureType _measureType = KE2400MeasureType.None;
+
+        public int TestInt { get; private set; }
 
 
         public KE2400(int BoardNumber, int PrimaryAddress, int SecondaryAddress)
@@ -292,7 +295,7 @@ namespace Keithley
                 {
                     case KE2400MeasureType.Voltage:
                     case KE2400MeasureType.Ohmic:
-                        _device.Write("CURR:PROT?");
+                        _device.Write("VOLT:PROT?");
                         break;
 
                     case KE2400MeasureType.Current:

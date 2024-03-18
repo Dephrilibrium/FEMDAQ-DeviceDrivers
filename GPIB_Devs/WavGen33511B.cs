@@ -298,7 +298,7 @@ namespace Keysight
             _device.Write("DISP:UNIT:VOLT AMPL");
 
             // Setup voltage
-            if (Amplitude < 1e-3 || Amplitude > 10.0) // Voltage can be between 1mV and 10V!
+            if (Amplitude < 1e-3 || Amplitude > 20.0) // Voltage can be between 1mV and 10V (outputload != HighZ) or 20V (Output = High-Z)!
                 throw new ArgumentOutOfRangeException("Amplitude");
 
             _device.Write("VOLT " + Amplitude.ToString("F3") + " V");

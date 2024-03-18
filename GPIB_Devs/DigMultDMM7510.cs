@@ -92,8 +92,8 @@ namespace Keithley
             _device.Write("FUNC \"" + Function + "\"");
             _device.Write("FUNC?");
             string response = _device.ReadString();
-            response = response.Remove(0, 1);                   // Remove beginning '"'
-            response = response.Remove(response.Length - 2);    // Remove ending "\"\n"
+            //response = response.Remove(0, 1);                   // Remove beginning '"'
+            response = response.Remove(response.Length - 1);    // Remove ending "\"\n"
             return response;
         }
 
