@@ -1,0 +1,7 @@
+# Ignored folders
+
+# Ignored files (wildcard)
+
+# Ignored files (specific)
+# debug.log is created since the last VSCode update due to an error or something? Just ignore this file!
+debug.log
