@@ -250,13 +250,13 @@ namespace HaumOTH
 
         public void MeasureCurrentFlowRequests()
         {
-            string basicCmd = "ADC:GET CF ";
+            string basicCmd = "ADC:GET SHNT ";
             internalMeasurementRoutine(basicCmd, CurrFlowChannels);
         }
 
         public void MeasureUFETDropRequests()
         {
-            string basicCmd = "ADC:GET UDRP ";
+            string basicCmd = "ADC:GET DROP ";
             internalMeasurementRoutine(basicCmd, UFETDropChannels);
 
             /*

@@ -14,14 +14,14 @@ using System.Linq;
 
 namespace HaumOTH
 {
-    public enum PiCam2Status
+    public enum PyCam2Status
     {
         Error = -1,
         Ok,
         Unconnected,
     };
 
-    public enum PiCam2ExposureMode
+    public enum PyCam2ExposureMode
     {
         off,
         auto,
@@ -38,7 +38,7 @@ namespace HaumOTH
         fireworks,
     };
 
-    public enum PiCam2AwbMode
+    public enum PyCam2AwbMode
     {
         // awbgain only valid when AwbMode is 'off'
         off,
@@ -53,7 +53,7 @@ namespace HaumOTH
         horizon,
     };
 
-    class PiCam2
+    class PyCam2
     {
         SshClient _ssh;
         //SshCommand _cmd = null;
@@ -76,7 +76,7 @@ namespace HaumOTH
 
 
 
-        public PiCam2(string Ip = "ccdkammer", UInt16 Port = 5060, string User = "pi", string Passwd = "ccdkammer", string PyCamScriptPath = "/home/pi/rPiHQCamServer2.py")
+        public PyCam2(string Ip = "ccdkammer", UInt16 Port = 5060, string User = "pi", string Passwd = "ccdkammer", string PyCamScriptPath = "/home/pi/rPiHQCamServer2.py")
         {
             if (Ip == null)
                 throw new ArgumentNullException("IP is null");
@@ -196,6 +196,7 @@ namespace HaumOTH
             string[] logLines = null;
             //string socketSuccessfully = "Socket created.";
             string logRdy4Client = "Awaiting connection";
+            int logRdyCheck_nLines = 2; // Check the last 2 lines in the log-file for "logRdy4Client" string value!
             while (pyCamScriptStatusRetries > 0)
             {
                 Thread.Sleep(pyCamScriptCheckTimeout_ms);
@@ -204,8 +205,15 @@ namespace HaumOTH
                 logLines = CatFile(PyLogPath).Split(new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
                 if (logLines.Length > 0) // Be sure, that at least 1 entry is received before trying to acces the log-entries
                 {
-                    if (logLines[logLines.Length - 1].StartsWith(logRdy4Client))
-                        goto breakNested; // There's no "double-break"^^
+
+                    for (int i = 1; i <= logRdyCheck_nLines; i++) // Workaround for warning "Ctrl AeEnable is not handled" from libcamera-stack, which prints this warning as last line!
+                    {                            // The loop iterates though the last "n" lines and checks for "Awaiting Connection"-Text in log-file
+                        if (i > logLines.Length) // Avoid index-out-of-range exception
+                            break;
+
+                        if(logLines[logLines.Length - i].StartsWith(logRdy4Client))
+                            goto breakNested; // There's no "double-break"^^
+                    }
                 }
                 pyCamScriptStatusRetries--;
             }
@@ -270,6 +278,7 @@ namespace HaumOTH
         public void DownloadFile(string SrcPath, string DstPath)
         {
             var _scp = new ScpClient(_connInfo);
+
             _scp.Connect();
 
             var fWriter = new FileStream(DstPath, FileMode.OpenOrCreate, FileAccess.Write);
@@ -363,10 +372,10 @@ namespace HaumOTH
         #endregion SSH-Commands
 
         #region Socket-Commands
-        public PiCam2Status CaptureShutterSpeedSequence(string Filename, uint nPicsPerSS, uint[] SSList, double IntervallTime_s, uint SaveSSLog)
+        public PyCam2Status CaptureShutterSpeedSequence(string Filename, uint nPicsPerSS, uint[] SSList, double IntervallTime_s, uint SaveSSLog)
         {
             if (SSList == null)
-                return PiCam2Status.Error;
+                return PyCam2Status.Error;
 
             string _ss = string.Empty;
             foreach (var SS in SSList)
@@ -380,64 +389,64 @@ namespace HaumOTH
             return EvaluatedQuery(string.Format("CAP:SEQFET {0} {1} {2} {3} {4}", Filename, _ss, nPicsPerSS, IntervallTime_s.ToString(), SaveSSLog));
         }
 
-        public PiCam2Status ConfFrameRate(double FrameRate)
+        public PyCam2Status ConfFrameRate(double FrameRate)
         {
             return EvaluatedQuery("CAM:CONF:FR " + FrameRate);
         }
 
-        public PiCam2Status ConfShutterSpeed(uint Shutterspeed_us = 1000)
+        public PyCam2Status ConfShutterSpeed(uint Shutterspeed_us = 1000)
         {
             return EvaluatedQuery("CAM:CONF:SS " + Shutterspeed_us);
         }
 
-        public PiCam2Status ConfAnalogGain(double Ag)
+        public PyCam2Status ConfAnalogGain(double Ag)
         {
             return EvaluatedQuery(string.Format("CAM:CONF:AG {0}", Ag));
         }
 
-        public PiCam2Status ConfScalerCrop(uint x = 0, uint y = 0, uint Width = 4056, uint Height = 3040)
+        public PyCam2Status ConfScalerCrop(uint x = 0, uint y = 0, uint Width = 4056, uint Height = 3040)
         {
             return EvaluatedQuery(string.Format("CAM:CONF:SCLCRP {0}:{1} {2}:{3}", x, y, Width, Height));
         }
 
-        public PiCam2Status ServerBayerClipSize(uint Width, uint Height)
+        public PyCam2Status ServerBayerClipSize(uint Width, uint Height)
         {
             return EvaluatedQuery(String.Format("SRV:IMG:BCLP {0}:{1}", Width, Height));
         }
-        public PiCam2Status ServerBayerClipSize(uint x, uint y, uint Width, uint Height)
+        public PyCam2Status ServerBayerClipSize(uint x, uint y, uint Width, uint Height)
         {
             return EvaluatedQuery(String.Format("SRV:IMG:BCLP {0}:{1}:{2}:{3}", x, y, Width, Height));
         }
-        public PiCam2Status ServerDeBayerClippedBayer(bool DebayerOnOff)
+        public PyCam2Status ServerDeBayerClippedBayer(bool DebayerOnOff)
         {
             // Use "1", "0" -> Shorter
             return EvaluatedQuery(String.Format("SRV:IMG:DBAY {0}", (DebayerOnOff ? 1 : 0)));
         }
-        public PiCam2Status ServerShrinkHalfDebayeredImageIterations(uint iterations)
+        public PyCam2Status ServerShrinkHalfDebayeredImageIterations(uint iterations)
         {
             return EvaluatedQuery(String.Format("SRV:IMG:SRNK {0}", iterations));
         }
 
 
         // AWB-Gains only valid on AWB-Mode "off". Previous AWB-Modes will auto-reconfigured to "off" by this method!
-        public PiCam2Status ConfAwbGains(double AwbGainRBalance, double AwbGainBBalance)
+        public PyCam2Status ConfAwbGains(double AwbGainRBalance, double AwbGainBBalance)
         {
             return EvaluatedQuery(string.Format("CAM:CONF:AWB {0}:{1}", AwbGainRBalance, AwbGainBBalance));
         }
         // AWB-Gains only valid on AWB-Mode "off". Previous AWB-Modes will auto-reconfigured to "off" by this method!
-        public PiCam2Status ConfAwbGains(double AwbGains = 1.2)
+        public PyCam2Status ConfAwbGains(double AwbGains = 1.2)
         {
-            return EvaluatedQuery(string.Format("CAM:CONF:AWB {0} {1}", AwbGains, Enum.GetName(typeof(PiCam2AwbMode), PiCam2AwbMode.off)));
+            return EvaluatedQuery(string.Format("CAM:CONF:AWB {0} {1}", AwbGains, Enum.GetName(typeof(PyCam2AwbMode), PyCam2AwbMode.off)));
         }
 
-        public PiCam2Status ConfAll(uint Shutterspeed_us = 1000, uint Iso = 500, uint Width = 1920, uint Height = 1080, PiCam2ExposureMode ExposureMode = PiCam2ExposureMode.off, PiCam2AwbMode AwbMode = PiCam2AwbMode.off, double AwbGainRBalance = 1.2, double AwbGainBBalance = 1.2)
+        public PyCam2Status ConfAll(uint Shutterspeed_us = 1000, uint Iso = 500, uint Width = 1920, uint Height = 1080, PyCam2ExposureMode ExposureMode = PyCam2ExposureMode.off, PyCam2AwbMode AwbMode = PyCam2AwbMode.off, double AwbGainRBalance = 1.2, double AwbGainBBalance = 1.2)
         {
             // Parameter order:
             // C#-Call:  0 iso, 1 SS, 2 & 3 AWB, 4 width, 5 height
             // PyScript: 0 iso, 1 SS, 2     AWB, 3 width, 4 height
             return EvaluatedQuery(string.Format("CAM:CONF:ALL {0} {1} {2}:{3} {4} {5}", Iso, Shutterspeed_us, AwbGainRBalance, AwbGainBBalance, Width, Height));
         }
-        public PiCam2Status ConfAll(int Shutterspeed_us = 1000, int Iso = 500, uint Width= 1920, uint Height=1080, PiCam2ExposureMode ExposureMode = PiCam2ExposureMode.off, PiCam2AwbMode AwbMode = PiCam2AwbMode.off, double AwbGains = 1.2)
+        public PyCam2Status ConfAll(int Shutterspeed_us = 1000, int Iso = 500, uint Width= 1920, uint Height=1080, PyCam2ExposureMode ExposureMode = PyCam2ExposureMode.off, PyCam2AwbMode AwbMode = PyCam2AwbMode.off, double AwbGains = 1.2)
         {
             // Parameter order:
             // C#-Call:  0 iso, 1 SS, 2 AWB, 3 width, 4 height
@@ -448,13 +457,13 @@ namespace HaumOTH
 
 
         #region Socket-Communication
-        private PiCam2Status EvaluatedQuery(string Message)
+        private PyCam2Status EvaluatedQuery(string Message)
         {
             var response = QuerySocket(Message);
             if (response == ackStr)
-                return PiCam2Status.Ok;
+                return PyCam2Status.Ok;
 
-            return PiCam2Status.Error;
+            return PyCam2Status.Error;
         }
 
         private string QuerySocket(string Message)
@@ -463,13 +472,13 @@ namespace HaumOTH
             return ReceiveFromSocket();
         }
 
-        private PiCam2Status Send2Socket(string Message)
+        private PyCam2Status Send2Socket(string Message)
         {
             if (!_socket.Connected)
-                return PiCam2Status.Unconnected;
+                return PyCam2Status.Unconnected;
 
             _socket.Send(Encoding.ASCII.GetBytes(Message));
-            return PiCam2Status.Ok;
+            return PyCam2Status.Ok;
         }
 
         private string ReceiveFromSocket(uint ExceptedSize = 32)
